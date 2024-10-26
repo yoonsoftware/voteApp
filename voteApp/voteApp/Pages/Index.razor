@@ -1,0 +1,76 @@
+﻿@page "/"
+@inject Biz Biz
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>투표 시스템</PageTitle>
+
+<h1>여행가고 싶은 국가는?</h1>
+
+
+@if (hasVoted)
+{
+    <p>투표해 주셔서 감사합니다. 투표 결과를 확인하세요.</p>
+    <ul>
+        @foreach (var option in Biz.VoteOptions)
+        {
+            <li>@option.Option: @option.Votes votes (@Biz.GetPercentage(option.Option)%)</li>
+        }
+    </ul>
+    <p>Total Votes: @Biz.TotalVotes</p>
+}
+else
+{
+    <div>
+        <h4>Select an Option:</h4>
+        @foreach (var option in Biz.VoteOptions)
+        {
+            <div>
+                <input type="radio" id="@option.Option" name="voteOption" value="@option.Option"
+                       @onchange="OnOptionSelected" />
+                <label for="@option.Option">@option.Option</label>
+            </div>
+        }
+        <button @onclick="SubmitVote" disabled="@(!isOptionSelected)">투표</button>
+    </div>
+}
+
+@code {
+    private string? selectedOption = null;
+    private bool hasVoted = false;
+    private bool isOptionSelected = false;
+
+    protected override void OnInitialized()
+    {
+        // 쿠키에서 투표 여부 확인
+        var cookie = HttpContextAccessor.HttpContext?.Request.Cookies["voted"];
+        hasVoted = cookie == "true";
+    }
+
+    private void OnOptionSelected(ChangeEventArgs e)
+    {
+        selectedOption = e.Value?.ToString();
+        isOptionSelected = !string.IsNullOrEmpty(selectedOption);
+    }
+
+    private async Task SubmitVote()
+    {
+        if (selectedOption != null)
+        {
+            Biz.Vote(selectedOption);
+            hasVoted = true;
+
+            await SetVoteCookie();
+        }
+    }
+
+    private async Task SetVoteCookie()
+    {
+        var options = new CookieOptions
+            {
+                Expires = DateTime.Now.AddHours(1)
+            };
+
+        await Task.Delay(1);
+        HttpContextAccessor.HttpContext?.Response.Cookies.Append("voted", "true", options);
+    }
+}
